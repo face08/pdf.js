@@ -171,9 +171,14 @@ function getViewerConfiguration() {
         ? document.getElementById("fileInput")
         : null,
     debuggerScriptPath: "./debugger.js",
+    onInitCallBack: () => {
+      const customEvent = new CustomEvent("APP_INIT");
+      window.dispatchEvent(customEvent);
+    },
   };
 }
 
+// 1:启动函数
 function webViewerLoad() {
   const config = getViewerConfiguration();
 

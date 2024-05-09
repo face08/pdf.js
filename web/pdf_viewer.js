@@ -742,6 +742,7 @@ class PDFViewer {
   }
 
   /**
+   * 设置 pdfDocument 文档
    * @param {PDFDocumentProxy} pdfDocument
    */
   setDocument(pdfDocument) {

@@ -159,8 +159,9 @@ class DefaultExternalServices {
 const PDFViewerApplication = {
   initialBookmark: document.location.hash.substring(1),
   _initializedCapability: new PromiseCapability(),
+  currentUrl: null,
   appConfig: null,
-  pdfDocument: null,
+  pdfDocument: null, // 当前打开的pdf文档
   pdfLoadingTask: null,
   printService: null,
   /** @type {PDFViewer} */
@@ -690,11 +691,14 @@ const PDFViewerApplication = {
     }
   },
 
+  // 2：初始化
   async run(config) {
     await this.initialize(config);
+    config.onInitCallBack();
 
+    // webViewerInitialized 下面以前为该函数内容
     const { appConfig, eventBus } = this;
-    let file;
+    let file; // 要加载的pdf
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
       const queryString = document.location.search.substring(1);
       const params = parseQueryString(queryString);
@@ -776,7 +780,7 @@ const PDFViewerApplication = {
 
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
       if (file) {
-        this.open({ url: file });
+        this.open({ url: file }); // 打开
       } else {
         this._hideViewBookmark();
       }
@@ -1026,12 +1030,14 @@ const PDFViewerApplication = {
   },
 
   /**
+   * 3：打开pdf {url: xxxx/xx.pdf}
    * Opens a new PDF document.
    * @param {Object} args - Accepts any/all of the properties from
    *   {@link DocumentInitParameters}, and also a `originalUrl` string.
    * @returns {Promise} - Promise that is resolved when the document is opened.
    */
   async open(args) {
+    this.currentUrl = args;
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
       let deprecatedArgs = false;
       if (typeof args === "string") {
@@ -1080,7 +1086,8 @@ const PDFViewerApplication = {
     } else if (PDFJSDev.test("MOZCENTRAL || CHROME")) {
       params.docBaseUrl ||= this.baseUrl;
     }
-    const loadingTask = getDocument(params);
+    this.eventBus.dispatch("PRE_LOAD_PDF", params);
+    const loadingTask = getDocument(params); // 文档demo介绍入口
     this.pdfLoadingTask = loadingTask;
 
     loadingTask.onPassword = (updateCallback, reason) => {
@@ -1098,6 +1105,7 @@ const PDFViewerApplication = {
 
     loadingTask.onProgress = ({ loaded, total }) => {
       this.progress(loaded / total);
+      console.log("进度：", loaded);
     };
 
     return loadingTask.promise.then(
@@ -1272,6 +1280,7 @@ const PDFViewerApplication = {
 
   load(pdfDocument) {
     this.pdfDocument = pdfDocument;
+    this.eventBus.dispatch("LOADED_PDF", pdfDocument);
 
     pdfDocument.getDownloadInfo().then(({ length }) => {
       this._contentLength = length; // Ensure that the correct length is used.
@@ -2254,7 +2263,7 @@ if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
       // start accepting URLs from foreign origin -- CORS headers on the remote
       // server must be properly configured.
       if (fileOrigin !== viewerOrigin) {
-        throw new Error("file origin does not match viewer's");
+        // throw new Error("file origin does not match viewer's");
       }
     } catch (ex) {
       PDFViewerApplication.l10n.get("loading_error").then(msg => {
@@ -2296,6 +2305,7 @@ function reportPageStatsPDFBug({ pageNumber }) {
 }
 
 function webViewerPageRender({ pageNumber }) {
+  console.log("多少也：", pageNumber);
   // If the page is (the most) visible when it starts rendering,
   // ensure that the page number input loading indicator is displayed.
   if (pageNumber === PDFViewerApplication.page) {
